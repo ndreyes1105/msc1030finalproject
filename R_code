@@ -1,0 +1,988 @@
+# SETUP
+# Set CRAN mirror
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+
+# Read the Project CSV file
+acu_maindata <- read.csv("/Users/nikolaigilreyes/Documents/Neurology/UofT SGS Masters-PhD/Courses/MSC1030H - Introduction to Statistics and Study Design/Final project/Projects/Project 6 Acupuncture/04 - Data.csv")
+
+# Install necessary packages
+if (!requireNamespace("tidyverse", quietly = TRUE)) {
+  install.packages("tidyverse")
+}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+install.packages("tidyverse")
+
+# Install packages needed for project
+install.packages("tidyverse")
+install.packages("gtsummary")
+install.packages("naniar")
+install.packages("mice")
+
+# Load packages
+library(tidyr)
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(gtsummary)
+library(naniar)
+library(ggplot2)
+library(mice)
+library(broom)
+library(data.table)
+
+# EXPLORING THE DATA
+# Convert data as tibble
+acutibble <- as_tibble(acu_maindata)
+class(acutibble)
+
+# Explore the acupuncture bdataset
+View(acutibble)
+dim(acutibble)
+str(acutibble)
+glimpse(acutibble)
+names(acutibble)
+unique(acutibble$id)
+unique(acutibble$age)
+unique(acutibble$sex)
+unique(acutibble$migraine)
+unique(acutibble$chronicity)
+unique(acutibble$acupuncturist)
+unique(acutibble$practice_id)
+unique(acutibble$group)
+unique(acutibble$pk1)
+unique(acutibble$pk2)
+unique(acutibble$pk5)
+unique(acutibble$f1)
+unique(acutibble$f2)
+unique(acutibble$f5)
+
+# Ensure categorical variables are discrete
+acutibble$sex <- as.factor(acutibble$sex)
+acutibble$migraine <- as.factor(acutibble$migraine)
+acutibble$acupuncturist <- as.factor(acutibble$acupuncturist)
+acutibble$practice_id <- as.factor(acutibble$practice_id)
+acutibble$group <- as.factor(acutibble$group)
+
+# Summary of the data based on type of data
+# CONTINUOUS
+age_summary <- summary(acutibble$age)
+print(age_summary)
+
+chronicity_summary <- summary(acutibble$chronicity)
+print(chronicity_summary)
+
+pk1_summary <- summary(acutibble$pk1)
+print(pk1_summary)
+
+pk2_summary <- summary(acutibble$pk2, na.rm = TRUE)  # Omit NA values from summary
+print(pk2_summary)
+
+pk5_summary <- summary(acutibble$pk5, na.rm = TRUE)  # Omit NA values from summary)
+print(pk5_summary)
+
+f1_summary <- summary(acutibble$f1, na.rm = TRUE)  # Omit NA values from summary
+print(f1_summary)
+
+f2_summary <- summary(acutibble$f2, na.rm = TRUE)  # Omit NA values from summary
+print(f2_summary)
+
+f5_summary <- summary(acutibble$f5, na.rm = TRUE)  # Omit NA values from summary)
+print(f5_summary)
+
+# Define a function to summarize a variable for each treatment group
+summarize_variable_by_group <- function(data, variable, group_var) {
+  control_summary <- summary(data[data[[group_var]] == 0, variable])
+  acupuncture_summary <- summary(data[data[[group_var]] == 1, variable])
+  list(control_summary = control_summary, acupuncture_summary = acupuncture_summary)
+}
+
+# Get summary statistics for each continuous variable stratified by treatment group
+age_summary <- summarize_variable_by_group(acutibble, "age", "group")
+chronicity_summary <- summarize_variable_by_group(acutibble, "chronicity", "group")
+pk1_summary <- summarize_variable_by_group(acutibble, "pk1", "group")
+pk2_summary <- summarize_variable_by_group(acutibble, "pk2", "group")
+pk5_summary <- summarize_variable_by_group(acutibble, "pk5", "group")
+f1_summary <- summarize_variable_by_group(acutibble, "f1", "group")
+f2_summary <- summarize_variable_by_group(acutibble, "f2", "group")
+f5_summary <- summarize_variable_by_group(acutibble, "f5", "group")
+
+# Print the summaries
+print(age_summary)
+print(chronicity_summary)
+print(pk1_summary)
+print(pk2_summary)
+print(pk5_summary)
+print(f1_summary)
+print(f2_summary)
+print(f5_summary)
+
+# CATEGORICAL
+# Summary for for categorical variables
+acutibble %>%
+  count(sex) %>%
+  print()
+
+acutibble %>%
+  count(migraine) %>%
+  print()
+
+acutibble %>%
+  count(acupuncturist) %>%
+  print()
+
+acutibble %>%
+  count(practice_id) %>%
+  print()
+
+acutibble %>%
+  count(group) %>%
+  print()
+
+# Checking for normality of distribution using Shapiro-Wilk test
+# Shapiro-Wilk test for Age in the entire dataset
+shapiro_test_entire <- acutibble %>%
+  summarise(shapiro_test = shapiro.test(age)$p.value) %>%
+  mutate(normal_distribution = ifelse(shapiro_test < 0.05, "Not normally distributed (reject null hypothesis)","Normally distributed (fail to reject null hypothesis)"))
+
+# Shapiro-Wilk test for Age stratified by treatment group
+shapiro_test_group <- acutibble %>%
+  group_by(group) %>%
+  summarise(shapiro_test = shapiro.test(age)$p.value) %>%
+  mutate(normal_distribution = ifelse(shapiro_test < 0.05, "Not normally distributed (reject null hypothesis)","Normally distributed (fail to reject null hypothesis)"))
+
+# Shapiro-Wilk test for Chronicity in the entire dataset
+shapiro_chronicity_entire <- acutibble %>%
+  summarise(shapiro_test = shapiro.test(chronicity)$p.value) %>%
+  mutate(normal_distribution = ifelse(shapiro_test < 0.05, "Not normally distributed (reject null hypothesis)","Normally distributed (fail to reject null hypothesis)"))
+
+# Shapiro-Wilk test for Chronicity stratified by treatment group
+shapiro_chronicity_group <- acutibble %>%
+  group_by(group) %>%
+  summarise(shapiro_test = shapiro.test(chronicity)$p.value) %>%
+  mutate(normal_distribution = ifelse(shapiro_test < 0.05, "Not normally distributed (reject null hypothesis)","Normally distributed (fail to reject null hypothesis)"))
+
+# Shapiro-Wilk test for pk1 in the entire dataset
+shapiro_pk1_entire <- acutibble %>%
+  summarise(shapiro_test = shapiro.test(pk1)$p.value) %>%
+  mutate(normal_distribution = ifelse(shapiro_test < 0.05, "Not normally distributed (reject null hypothesis)","Normally distributed (fail to reject null hypothesis)"))
+
+# Shapiro-Wilk test for pk1 stratified by treatment group
+shapiro_pk1_group <- acutibble %>%
+  group_by(group) %>%
+  summarise(shapiro_test = shapiro.test(pk1)$p.value) %>%
+  mutate(normal_distribution = ifelse(shapiro_test < 0.05, "Not normally distributed (reject null hypothesis)","Normally distributed (fail to reject null hypothesis)"))
+
+# Shapiro-Wilk test for pk2 in the entire dataset
+shapiro_pk2_entire <- acutibble %>%
+  summarise(shapiro_test = shapiro.test(pk2)$p.value) %>%
+  mutate(normal_distribution = ifelse(shapiro_test < 0.05, "Not normally distributed (reject null hypothesis)","Normally distributed (fail to reject null hypothesis)"))
+
+# Shapiro-Wilk test for pk2 stratified by treatment group
+shapiro_pk2_group <- acutibble %>%
+  group_by(group) %>%
+  summarise(shapiro_test = shapiro.test(pk2)$p.value) %>%
+  mutate(normal_distribution = ifelse(shapiro_test < 0.05, "Not normally distributed (reject null hypothesis)","Normally distributed (fail to reject null hypothesis)"))
+
+# Shapiro-Wilk test for pk5 in the entire dataset
+shapiro_pk5_entire <- acutibble %>%
+  summarise(shapiro_test = shapiro.test(pk5)$p.value) %>%
+  mutate(normal_distribution = ifelse(shapiro_test < 0.05, "Not normally distributed (reject null hypothesis)","Normally distributed (fail to reject null hypothesis)"))
+
+# Shapiro-Wilk test for pk5 stratified by treatment group
+shapiro_pk5_group <- acutibble %>%
+  group_by(group) %>%
+  summarise(shapiro_test = shapiro.test(pk5)$p.value) %>%
+  mutate(normal_distribution = ifelse(shapiro_test < 0.05, "Not normally distributed (reject null hypothesis)","Normally distributed (fail to reject null hypothesis)"))
+
+# Shapiro-Wilk test for f1 in the entire dataset
+shapiro_f1_entire <- acutibble %>%
+  summarise(shapiro_test = shapiro.test(f1)$p.value) %>%
+  mutate(normal_distribution = ifelse(shapiro_test < 0.05, "Not normally distributed (reject null hypothesis)","Normally distributed (fail to reject null hypothesis)"))
+
+# Shapiro-Wilk test for f1 stratified by treatment group
+shapiro_f1_group <- acutibble %>%
+  group_by(group) %>%
+  summarise(shapiro_test = shapiro.test(f1)$p.value) %>%
+  mutate(normal_distribution = ifelse(shapiro_test < 0.05, "Not normally distributed (reject null hypothesis)","Normally distributed (fail to reject null hypothesis)"))
+
+# Shapiro-Wilk test for f2 in the entire dataset
+shapiro_f2_entire <- acutibble %>%
+  summarise(shapiro_test = shapiro.test(f2)$p.value) %>%
+  mutate(normal_distribution = ifelse(shapiro_test < 0.05, "Not normally distributed (reject null hypothesis)","Normally distributed (fail to reject null hypothesis)"))
+
+# Shapiro-Wilk test for f2 stratified by treatment group
+shapiro_f2_group <- acutibble %>%
+  group_by(group) %>%
+  summarise(shapiro_test = shapiro.test(f2)$p.value) %>%
+  mutate(normal_distribution = ifelse(shapiro_test < 0.05, "Not normally distributed (reject null hypothesis)","Normally distributed (fail to reject null hypothesis)"))
+
+# Shapiro-Wilk test for f5 in the entire dataset
+shapiro_f5_entire <- acutibble %>%
+  summarise(shapiro_test = shapiro.test(f5)$p.value) %>%
+  mutate(normal_distribution = ifelse(shapiro_test < 0.05, "Not normally distributed (reject null hypothesis)","Normally distributed (fail to reject null hypothesis)"))
+
+# Shapiro-Wilk test for f5 stratified by treatment group
+shapiro_f5_group <- acutibble %>%
+  group_by(group) %>%
+  summarise(shapiro_test = shapiro.test(f5)$p.value) %>%
+  mutate(normal_distribution = ifelse(shapiro_test < 0.05, "Not normally distributed (reject null hypothesis)","Normally distributed (fail to reject null hypothesis)"))
+
+shapiro_test_entire
+shapiro_test_group
+shapiro_chronicity_entire
+shapiro_chronicity_group
+shapiro_pk1_entire
+shapiro_pk1_group
+shapiro_pk2_entire
+shapiro_pk2_group
+shapiro_pk5_entire
+shapiro_pk5_group
+shapiro_f1_entire
+shapiro_f1_group
+shapiro_f2_entire
+shapiro_f2_group
+shapiro_f5_entire
+shapiro_f5_group
+
+# VISUALIZE THE DATA
+# Visualize the entire dataset - continuous variables
+# Histogram for Age
+acutibble %>%
+  ggplot(aes(x = age)) +
+  geom_histogram(binwidth = 5, fill = "skyblue", color = "black") +
+  labs(title = "Histogram of Age", x = "Age (years)", y = "Frequency") +
+  theme_minimal()
+
+# Box plot for Chronicity
+acutibble %>%
+  ggplot(aes(y = chronicity)) +
+  geom_boxplot(fill = "lightgreen", color = "black", width = 5) +
+  labs(title = "Box Plot of Chronicity", y = "Chronicity (years)") +
+  theme_minimal()
+
+# Box plot for pk1
+acutibble %>%
+  ggplot(aes(y = pk1)) +
+  geom_boxplot(fill = "lightcoral", color = "black") +
+  labs(title = "Averaged daily headache severity at baseline", y = "Headache severity score") +
+  theme_minimal()
+
+# Box plot for pk2
+acutibble %>%
+  ggplot(aes(y = pk2)) +
+  geom_boxplot(fill = "lightpink", color = "black") +
+  labs(title = "Averaged daily headache severity at 3 months", y = "Headache severity score") +
+  theme_minimal()
+
+# Box plot for pk5
+acutibble %>%
+  ggplot(aes(y = pk5)) +
+  geom_boxplot(fill = "lightblue", color = "black") +
+  labs(title = "Averaged daily headache severity at 12 months", y = "Headache severity score") +
+  theme_minimal()
+
+# Box plot for f1
+acutibble %>%
+  ggplot(aes(y = f1)) +
+  geom_boxplot(fill = "lightcoral", color = "black") +
+  labs(title = "Headache frequency at baseline", y = "Days per month") +
+  theme_minimal()
+
+# Box plot for f2
+acutibble %>%
+  ggplot(aes(y = f2)) +
+  geom_boxplot(fill = "lightpink", color = "black") +
+  labs(title = "Headache frequency at 3 months", y = "Days per month") +
+  theme_minimal()
+
+# Box plot for f5
+acutibble %>%
+  ggplot(aes(y = f5)) +
+  geom_boxplot(fill = "lightblue", color = "black") +
+  labs(title = "Headache frequency at 12 months", y = "Days per month") +
+  theme_minimal()
+
+# Visualize data per treatment group
+# AGE per treatment group
+# Define color palette
+my_colors <- c("skyblue", "lightcoral")
+
+# Histogram for Age stratified by treatment group
+acutibble %>%
+  mutate(group = factor(group, levels = c(0, 1))) %>%
+  ggplot(aes(x = age, fill = factor(group))) +
+  geom_histogram(binwidth = 5, color = "black", show.legend = FALSE) +
+  labs(title = "Age of participants per treatment group", x = "Age (years)", y = "Frequency", fill = NULL) +
+  facet_wrap(~ group, ncol = 2, labeller = labeller(group = c("0" = "Control", "1" = "Acupuncture"))) +
+  theme_minimal() +
+  scale_fill_manual(values = my_colors)
+
+# Box plots for Chronicity stratified by treatment group
+acutibble %>%
+  ggplot(aes(x = factor(group), y = chronicity, fill = factor(group))) +
+  geom_boxplot(show.legend = FALSE) +
+  labs(title = "Headache chronicity by treatment group",
+       x = "Treatment Group",
+       y = "Chronicity (years)") +
+  scale_fill_manual(values = c("skyblue", "lightcoral")) +
+  scale_x_discrete(labels = c("Avoid acupuncture policy", "Use acupuncture policy")) + # Change x-axis labels
+  theme_minimal()
+
+# Box plots for averaged daily headache scores at different time points stratified by group
+# pk1 - baseline
+acutibble %>%
+  ggplot(aes(x = factor(group), y = pk1, fill = factor(group))) +
+  geom_boxplot(show.legend = FALSE) +
+  labs(title = "Headache frequency per month at baseline stratified by treatment group",
+       y = "Number of days with headache per month",
+       x = "Treatment Group") +
+  scale_fill_manual(values = c("skyblue", "lightcoral")) +
+  scale_x_discrete(labels = c("Avoid acupuncture policy", "Use acupuncture policy")) +
+  scale_y_continuous(breaks = seq(0,30, by = 10), limits = c(0,30)) +
+  theme_minimal()
+
+# pk2 - 3 months
+acutibble %>%
+  ggplot(aes(x = factor(group), y = pk2, fill = factor(group))) +
+  geom_boxplot(show.legend = FALSE) +
+  labs(title = "Headache frequency per month at 3 months stratified by treatment group",
+       y = "Number of days with headache per month",
+       x = "Treatment Group") +
+  scale_fill_manual(values = c("skyblue", "lightcoral")) +
+  scale_x_discrete(labels = c("Avoid acupuncture policy", "Use acupuncture policy")) +
+  scale_y_continuous(breaks = seq(0,30, by = 10), limits = c(0,30)) +
+  theme(plot.title = element_text(size = 12))
+
+# pk5 - 12 months
+acutibble %>%
+  ggplot(aes(x = factor(group), y = pk5, fill = factor(group))) +
+  geom_boxplot(show.legend = FALSE) +
+  labs(title = "Headache frequency per month at 12 months stratified by treatment group",
+       y = "Number of days with headache per month",
+       x = "Treatment Group") +
+  scale_fill_manual(values = c("skyblue", "lightcoral")) +
+  scale_x_discrete(labels = c("Avoid acupuncture policy", "Use acupuncture policy")) +
+  scale_y_continuous(breaks = seq(0,30, by = 10), limits = c(0,30)) +
+  theme(plot.title = element_text(size = 12))
+
+
+# Box plots for Headache Frequency per Month stratified by treatment group
+# f1 - baseline
+acutibble %>%
+  ggplot(aes(x = factor(group), y = f1, fill = factor(group))) +
+  geom_boxplot(show.legend = FALSE) +
+  labs(title = "Headache frequency per month at baseline stratified by treatment group",
+       y = "Number of days with headache per month",
+       x = "Treatment Group") +
+  scale_fill_manual(values = c("skyblue", "lightcoral")) +
+  scale_x_discrete(labels = c("Avoid acupuncture policy", "Use acupuncture policy")) +
+  scale_y_continuous(breaks = seq(0,30, by = 10), limits = c(0,30)) +
+  theme_minimal()
+
+# f2 - 3 months
+acutibble %>%
+  ggplot(aes(x = factor(group), y = f2, fill = factor(group))) +
+  geom_boxplot(show.legend = FALSE) +
+  labs(title = "Headache frequency per month at 3 months stratified by treatment group",
+       y = "Number of days with headache per month",
+       x = "Treatment Group") +
+  scale_fill_manual(values = c("skyblue", "lightcoral")) +
+  scale_x_discrete(labels = c("Avoid acupuncture policy", "Use acupuncture policy")) +
+  scale_y_continuous(breaks = seq(0,30, by = 10), limits = c(0,30)) +
+  theme(plot.title = element_text(size = 12))
+
+# f5 - 12 months
+acutibble %>%
+  ggplot(aes(x = factor(group), y = f5, fill = factor(group))) +
+  geom_boxplot(show.legend = FALSE) +
+  labs(title = "Headache frequency per month at 12 months stratified by treatment group",
+       y = "Number of days with headache per month",
+       x = "Treatment Group") +
+  scale_fill_manual(values = c("skyblue", "lightcoral")) +
+  scale_x_discrete(labels = c("Avoid acupuncture policy", "Use acupuncture policy")) +
+  scale_y_continuous(breaks = seq(0,30, by = 10), limits = c(0,30)) +
+  theme(plot.title = element_text(size = 12))
+
+# Select the variables f1, f2, f5, pk1, pk2, pk5, group, and Study ID
+selected_data <- acutibble %>%
+  select(id, group, f1, f2, f5, pk1, pk2, pk5)
+
+# View the selected data
+print(selected_data)
+
+# BASELINE CHARACTERISTICS
+# Assuming 'acutibble' is already loaded with your dataset
+
+acutibble %>% 
+  select(group, age, sex, migraine, chronicity, pk1, f1) %>% 
+  tbl_summary(by = group,
+              statistic = list(all_continuous() ~ "{median} ({IQR})",
+                               all_categorical() ~ "{n} /{N} ({p}%)"),
+              digits = all_continuous() ~ 2) %>% 
+  add_p() %>% 
+  add_overall()
+
+# DEALING WITH MISSING DATA
+# Explore the missing data
+acutibble %>%
+  summarise(across(everything(), ~sum(is.na(.)))) %>%
+  print()
+
+acutibble %>%
+  filter(!complete.cases(.))
+
+# Check proportion of missing data per variable
+missing_proportion_per_variable <- acutibble %>%
+  summarise(across(everything(), ~mean(is.na(.))))
+
+# Print the result
+print(missing_proportion_per_variable)
+
+# Visualize missing data
+vis_miss(acutibble)
+vis_miss(acutibble, cluster = TRUE)
+missing_plot <- gg_miss_upset(acutibble)
+
+# Print the plot
+print(missing_plot)
+
+# MAIN ANALYSES
+# Calculate mean differences for HEADACHE SEVERITY
+acutibble <- acutibble %>%
+  mutate(mean_diff_pk2_pk1 = pk2 - pk1,
+         mean_diff_pk5_pk1 = pk5 - pk1)
+
+# Calculate mean differences for HEADACHE FREQUENCY
+acutibble <- acutibble %>%
+  mutate(mean_diff_f2_f1 = f2 - f1,
+         mean_diff_f5_f1 = f5 - f1)
+
+# UNADJUSTED ANALYSES
+# Unadjusted analyses using ANCOVA for HEADACHE SEVERITY AT 3 MONTHS
+# Unadjusted ANCOVA for mean_diff_pk2_pk1
+unadjusted_diff_pk2_pk1 <- lm(mean_diff_pk2_pk1 ~ group, data = na.omit(acutibble))
+
+# Unadjusted analyses using ANCOVA for HEADACHE SEVERITY AT 12 MONTHS
+unadjusted_diff_pk5_pk1 <- lm(mean_diff_pk5_pk1 ~ group, data = na.omit(acutibble))
+
+# Unadjusted ANCOVA for HEADACHE FREQUENCY AT 3 MONTHS
+unadjusted_diff_f2_f1 <- lm(mean_diff_f2_f1 ~ group, data = na.omit(acutibble))
+
+# Unadjusted ANCOVA for HEADACHE FREQUENCY AT 12 MONTHS
+unadjusted_diff_f5_f1 <- lm(mean_diff_f5_f1 ~ group, data = na.omit(acutibble))
+
+# ADJUSTED ANALYSES
+# Adjusted analyses using ANCOVA for HEADACHE SEVERITY AT 3 MONTHS
+# Adjusted ANCOVA for mean_diff_pk2_pk1
+adjusted_diff_pk2_pk1 <- lm(mean_diff_pk2_pk1 ~ group + age + sex + migraine + chronicity + pk1, data = na.omit(acutibble))
+
+# Adjusted analyses using ANCOVA for HEADACHE SEVERITY AT 12 MONTHS
+adjusted_diff_pk5_pk1 <- lm(mean_diff_pk5_pk1 ~ group + age + sex + migraine + chronicity + pk1, data = na.omit(acutibble))
+
+# Adjusted ANCOVA for HEADACHE FREQUENCY AT 3 MONTHS
+adjusted_diff_f2_f1 <- lm(mean_diff_f2_f1 ~ group + age + sex + migraine + chronicity + f1, data = na.omit(acutibble))
+
+# Adjusted ANCOVA for HEADACHE FREQUENCY AT 12 MONTHS
+adjusted_diff_f5_f1 <- lm(mean_diff_f5_f1 ~ group + age + sex + migraine + chronicity + f1, data = na.omit(acutibble))
+
+# SUMMARIZE RESULTS OF ADJUSTED ANALYSES
+summary(adjusted_diff_pk2_pk1)
+summary(adjusted_diff_pk5_pk1)
+summary(adjusted_diff_f2_f1)
+summary(adjusted_diff_f5_f1)
+
+# ASSESSMENT OF MODEL FIT ADJUSTED ANALYSES
+# Adjusted analyses for difference in HEADACHE SEVERITY between baseline and 3 months
+# Residuals vs. Fitted Plot
+plot(adjusted_diff_pk2_pk1, which = 1, main = "Mean Difference in Headache Severity at 3 months", sub = "Check for Homoscedasticity")
+
+# Q-Q Plot
+plot(adjusted_diff_pk2_pk1, which = 2, main = "Mean Difference in Headache Severity at 3 months", sub = "Check for Normality")
+
+# Scale-Location Plot
+plot(adjusted_diff_pk2_pk1, which = 3, main = "Mean Difference in Headache Severity at 3 months", sub = "Check for Homoscedasticity")
+
+# Cook's Distance Plot
+plot(adjusted_diff_pk2_pk1, which = 4, main = "Mean Difference in Headache Severity at 3 months", sub = "Check for Influential Points")
+
+# Adjusted analyses for difference in HEADACHE SEVERITY between baseline and 12 months
+# Residuals vs. Fitted Plot
+plot(adjusted_diff_pk5_pk1, which = 1, main = "Mean Difference in Headache Severity at 12 months", sub = "Check for Homoscedasticity")
+
+# Q-Q Plot
+plot(adjusted_diff_pk5_pk1, which = 2, main = "Mean Difference in Headache Severity at 12 months", sub = "Check for Normality")
+
+# Scale-Location Plot
+plot(adjusted_diff_pk5_pk1, which = 3, main = "Mean Difference in Headache Severity at 12 months", sub = "Check for Homoscedasticity")
+
+# Cook's Distance Plot
+plot(adjusted_diff_pk5_pk1, which = 4, main = "Mean Difference in Headache Severity at 12 months", sub = "Check for Influential Points")
+
+# Adjusted analyses for difference in HEADACHE FREQUENCY between baseline and 3 months
+# Residuals vs. Fitted Plot
+plot(adjusted_diff_f2_f1, which = 1, main = "Mean Difference in Headache Frequency at 3 months", sub = "Check for Homoscedasticity")
+
+# Q-Q Plot
+plot(adjusted_diff_f2_f1, which = 2, main = "Mean Difference in Headache Frequency at 3 months", sub = "Check for Normality")
+
+# Scale-Location Plot
+plot(adjusted_diff_f2_f1, which = 3, main = "Mean Difference in Headache Frequency at 3 months", sub = "Check for Homoscedasticity")
+
+# Cook's Distance Plot
+plot(adjusted_diff_f2_f1, which = 4, main = "Mean Difference in Headache Frequency at 3 months", sub = "Check for Influential Points")
+
+# Adjusted analyses for difference in HEADACHE FREQUENCY between baseline and 12 months
+# Residuals vs. Fitted Plot
+plot(adjusted_diff_f5_f1, which = 1, main = "Mean Difference in Headache Frequency at 12 months", sub = "Check for Homoscedasticity")
+
+# Q-Q Plot
+plot(adjusted_diff_f5_f1, which = 2, main = "Mean Difference in Headache Frequency at 12 months", sub = "Check for Normality")
+
+# Scale-Location Plot
+plot(adjusted_diff_f5_f1, which = 3, main = "Mean Difference in Headache Frequency at 12 months", sub = "Check for Homoscedasticity")
+
+# Cook's Distance Plot
+plot(adjusted_diff_f5_f1, which = 4, main = "Mean Difference in Headache Frequency at 12 months", sub = "Check for Influential Points")
+
+# Convert model objects to tidy data frames
+unadjusted_summaries <- bind_rows(
+  unadjusted_diff_pk2_pk1 %>% tidy(),
+  unadjusted_diff_pk5_pk1 %>% tidy(),
+  unadjusted_diff_f2_f1 %>% tidy(),
+  unadjusted_diff_f5_f1 %>% tidy()
+) %>%
+  mutate(analysis_type = "Unadjusted")
+
+adjusted_summaries <- bind_rows(
+  adjusted_diff_pk2_pk1 %>% tidy(),
+  adjusted_diff_pk5_pk1 %>% tidy(),
+  adjusted_diff_f2_f1 %>% tidy(),
+  adjusted_diff_f5_f1 %>% tidy()
+) %>%
+  mutate(analysis_type = "Adjusted")
+
+# Combine unadjusted and adjusted summaries
+all_summaries <- bind_rows(unadjusted_summaries, adjusted_summaries)
+
+# Print summary results
+print(all_summaries)
+
+# Function to calculate confidence intervals
+calculate_ci <- function(model_summary) {
+  estimate <- model_summary$estimate
+  std_error <- model_summary$std.error
+  lower_ci <- estimate - 1.96 * std_error
+  upper_ci <- estimate + 1.96 * std_error
+  ci <- data.frame(lower_ci, upper_ci)
+  return(ci)
+}
+
+# Calculate confidence intervals for unadjusted pk2-pk1
+unadjusted_pk2_pk1_ci <- calculate_ci(filter(unadjusted_summaries, term == "group1"))
+
+# Calculate confidence intervals for adjusted pk2-pk1
+adjusted_pk2_pk1_ci <- calculate_ci(filter(adjusted_summaries, term == "group1"))
+
+# Calculate confidence intervals for unadjusted pk5-pk1
+unadjusted_pk5_pk1_ci <- calculate_ci(filter(unadjusted_summaries, term == "group1"))
+
+# Calculate confidence intervals for adjusted pk5-pk1
+adjusted_pk5_pk1_ci <- calculate_ci(filter(adjusted_summaries, term == "group1"))
+
+# Calculate confidence intervals for unadjusted f2-f1
+unadjusted_f2_f1_ci <- calculate_ci(filter(unadjusted_summaries, term == "group1"))
+
+# Calculate confidence intervals for adjusted f2-f1
+adjusted_f2_f1_ci <- calculate_ci(filter(adjusted_summaries, term == "group1"))
+
+# Calculate confidence intervals for unadjusted f5-f1
+unadjusted_f5_f1_ci <- calculate_ci(filter(unadjusted_summaries, term == "group1"))
+
+# Calculate confidence intervals for adjusted f5-f1
+adjusted_f5_f1_ci <- calculate_ci(filter(adjusted_summaries, term == "group1"))
+
+# Create data frames for unadjusted and adjusted confidence intervals
+unadjusted_ci <- data.frame(
+  Analysis_Type = "Unadjusted",
+  Mean_Difference = c("pk2 - pk1", "pk5 - pk1", "f2 - f1", "f5 - f1"),
+  CI_Lower = c(unadjusted_pk2_pk1_ci$lower_ci, unadjusted_pk5_pk1_ci$lower_ci, unadjusted_f2_f1_ci$lower_ci, unadjusted_f5_f1_ci$lower_ci),
+  CI_Upper = c(unadjusted_pk2_pk1_ci$upper_ci, unadjusted_pk5_pk1_ci$upper_ci, unadjusted_f2_f1_ci$upper_ci, unadjusted_f5_f1_ci$upper_ci)
+)
+
+adjusted_ci <- data.frame(
+  Analysis_Type = "Adjusted",
+  Mean_Difference = c("pk2 - pk1", "pk5 - pk1", "f2 - f1", "f5 - f1"),
+  CI_Lower = c(adjusted_pk2_pk1_ci$lower_ci, adjusted_pk5_pk1_ci$lower_ci, adjusted_f2_f1_ci$lower_ci, adjusted_f5_f1_ci$lower_ci),
+  CI_Upper = c(adjusted_pk2_pk1_ci$upper_ci, adjusted_pk5_pk1_ci$upper_ci, adjusted_f2_f1_ci$upper_ci, adjusted_f5_f1_ci$upper_ci)
+)
+
+# Combine unadjusted and adjusted confidence intervals
+all_ci <- rbind(unadjusted_ci, adjusted_ci)
+
+# Print confidence intervals
+print(all_ci)
+
+
+# Calculate mean values for each variable stratified by treatment group
+mean_values <- acutibble %>%
+  group_by(group) %>%
+  summarize(
+    mean_pk1 = mean(pk1, na.rm = TRUE),
+    mean_pk2 = mean(pk2, na.rm = TRUE),
+    mean_pk5 = mean(pk5, na.rm = TRUE),
+    mean_f1 = mean(f1, na.rm = TRUE),
+    mean_f2 = mean(f2, na.rm = TRUE),
+    mean_f5 = mean(f5, na.rm = TRUE)
+  )
+
+# Print the mean values
+print(mean_values)
+
+# Calculate the number of observations per treatment group for each outcome
+num_obs_per_group <- acutibble %>%
+  na.omit() %>%
+  group_by(group) %>%
+  summarize(
+    n_pk2_pk1 = sum(!is.na(pk2 - pk1)),
+    n_pk5_pk1 = sum(!is.na(pk5 - pk1)),
+    n_f2_f1 = sum(!is.na(f2 - f1)),
+    n_f5_f1 = sum(!is.na(f5 - f1))
+  )
+
+# Print the number of observations per treatment group for each outcome
+print(num_obs_per_group)
+
+# Function for backward selection
+backward_selection <- function(initial_model) {
+  # Get the coefficient of interest
+  coefficient_of_interest <- coef(initial_model)["group"]
+  
+  # Perform backward elimination
+  while (TRUE) {
+    # Get the names of potential confounding variables
+    potential_confounders <- names(coef(initial_model))
+    potential_confounders <- potential_confounders[potential_confounders != "(Intercept)" & potential_confounders != "group"]
+    
+    # Initialize a flag to check if any variable was removed
+    variable_removed <- FALSE
+    
+    # Iterate through potential confounders
+    for (variable in potential_confounders) {
+      # Create a new formula without the current variable
+      new_formula <- as.formula(paste(names(formula(initial_model))[2], "~ . -", variable))
+      
+      # Refit the model
+      new_model <- update(initial_model, formula = new_formula)
+      
+      # Get the coefficient of interest from the new model
+      new_coefficient <- coef(new_model)["group"]
+      
+      # Check if the coefficient of interest is not missing
+      if (!is.na(new_coefficient)) {
+        # Check if removing the variable affects the coefficient of interest
+        if (abs(new_coefficient - coefficient_of_interest) > 0.1) {
+          # If removing the variable affects the coefficient, update the model
+          initial_model <- new_model
+          coefficient_of_interest <- new_coefficient
+          variable_removed <- TRUE
+          break  # Exit the loop after removing one variable
+        }
+      }
+    }
+    
+    # If no variable was removed, exit the loop
+    if (!variable_removed) {
+      break
+    }
+  }
+  
+  return(initial_model)
+}
+
+# Perform backward selection for each adjusted analysis
+final_model_pk2_pk1 <- backward_selection(adjusted_diff_pk2_pk1)
+final_model_pk5_pk1 <- backward_selection(adjusted_diff_pk5_pk1)
+final_model_f2_f1 <- backward_selection(adjusted_diff_f2_f1)
+final_model_f5_f1 <- backward_selection(adjusted_diff_f5_f1)
+
+# Summarize the final models
+summary(final_model_pk2_pk1)
+summary(final_model_pk5_pk1)
+summary(final_model_f2_f1)
+summary(final_model_f5_f1)
+
+# ADDITIONAL ANALYSIS TO ASSESS FOR CONFOUNDING - HEADACHE SEVERITY
+# pk1 as potential confounder for pk2-pk1 based on final models
+# Adjusted ANCOVA for mean_diff_pk2_pk1
+adjusted_diff_pk2_pk1 <- lm(mean_diff_pk2_pk1 ~ group + age + sex + migraine + chronicity + pk1, data = na.omit(acutibble))
+
+# Adjusted ANCOVA for mean_diff_pk2_nopk1
+adjusted_diff_pk2_pk1_nopk1 <- lm(mean_diff_pk2_pk1 ~ group + age + sex + migraine + chronicity, data = na.omit(acutibble))
+
+# Adjusted ANCOVA for mean_diff_pk2_pk1
+adjusted_diff_pk2_pk1_pk1covaronly <- lm(mean_diff_pk2_pk1 ~ pk1, data = na.omit(acutibble))
+
+# Summarize results for assessment of pk1 as potential confounder for pk2-pk1
+summary(adjusted_diff_pk2_pk1)
+summary(adjusted_diff_pk2_pk1_nopk1)
+summary(adjusted_diff_pk2_pk1_pk1covaronly)
+
+# HEADACHE DIAGNOSIS as potential confounder for pk2-pk1 based on final models
+# Adjusted ANCOVA for mean_diff_pk2_nomigraine
+adjusted_diff_pk2_pk1_nomigraine <- lm(mean_diff_pk2_pk1 ~ group + age + sex + chronicity, data = na.omit(acutibble))
+
+# Adjusted ANCOVA for mean_diff_pk2_pk1 headache diagnosis only
+adjusted_diff_pk2_pk1_migraineonly <- lm(mean_diff_pk2_pk1 ~ migraine, data = na.omit(acutibble))
+
+# Summarize results for assessment of MIGRAINE as potential confounder for pk2-pk1
+summary(adjusted_diff_pk2_pk1)
+summary(adjusted_diff_pk2_pk1_nomigraine)
+summary(adjusted_diff_pk2_pk1_migraineonly)
+
+# AGE as potential confounder for pk2-pk1 based on final models
+# Adjusted ANCOVA for mean_diff_pk2_pk1_noage
+adjusted_diff_pk2_pk1_noage <- lm(mean_diff_pk2_pk1 ~ group + sex + migraine + chronicity + pk1, data = na.omit(acutibble))
+
+# Adjusted ANCOVA for mean_diff_pk2_pk1_ageonly
+adjusted_diff_pk2_pk1_ageonly<- lm(mean_diff_pk2_pk1 ~ age, data = na.omit(acutibble))
+
+# Summarize results for assessment of AGE as potential confounder for pk2-pk1
+summary(adjusted_diff_pk2_pk1)
+summary(adjusted_diff_pk2_pk1_noage)
+summary(adjusted_diff_pk2_pk1_ageonly)
+
+# pk1 as potential confounder for pk5-pk1 based on final models
+# Adjusted ANCOVA for mean_diff_pk2_pk1
+adjusted_diff_pk5_pk1 <- lm(mean_diff_pk5_pk1 ~ group + age + sex + migraine + chronicity + pk1, data = na.omit(acutibble))
+
+# Adjusted ANCOVA for mean_diff_pk2_nopk1
+adjusted_diff_pk5_pk1_nopk1 <- lm(mean_diff_pk5_pk1 ~ group + age + sex + migraine + chronicity, data = na.omit(acutibble))
+
+# Adjusted ANCOVA for mean_diff_pk2_pk1_pk1covaronly
+adjusted_diff_pk5_pk1_pk1covaronly <- lm(mean_diff_pk5_pk1 ~ pk1, data = na.omit(acutibble))
+
+summary(adjusted_diff_pk5_pk1)
+summary(adjusted_diff_pk5_pk1_nopk1)
+summary(adjusted_diff_pk5_pk1_pk1covaronly)
+
+# HEADACHE DIAGNOSIS as potential confounder for pk5-pk1 based on final models
+# Adjusted ANCOVA for mean_diff_pk5_nomigraine
+adjusted_diff_pk5_pk1_nomigraine <- lm(mean_diff_pk5_pk1 ~ group + age + sex + chronicity, data = na.omit(acutibble))
+
+# Adjusted ANCOVA for mean_diff_pk5_pk1 headache diagnosis only
+adjusted_diff_pk5_pk1_migraineonly <- lm(mean_diff_pk5_pk1 ~ migraine, data = na.omit(acutibble))
+
+# Summarize results for assessment of MIGRAINE as potential confounder for pk2-pk1
+summary(adjusted_diff_pk5_pk1)
+summary(adjusted_diff_pk5_pk1_nomigraine)
+summary(adjusted_diff_pk5_pk1_migraineonly)
+
+# AGE as potential confounder for pk5-pk1 based on final models, no age
+adjusted_diff_pk5_pk1_noage <- lm(mean_diff_pk5_pk1 ~ group + age + sex + migraine + chronicity, data = na.omit(acutibble))
+
+# AGE as potential confounder for pk5-pk1 based on final models; age only
+adjusted_diff_pk5_pk1_agecovaronly <- lm(mean_diff_pk5_pk1 ~ age, data = na.omit(acutibble))
+
+summary(adjusted_diff_pk5_pk1)
+summary(adjusted_diff_pk5_pk1_noage)
+summary(adjusted_diff_pk5_pk1_agecovaronly)
+
+# ADDITIONAL ANALYSIS TO ASSESS FOR CONFOUNDING - HEADACHE FREQUENCY
+# f1 as potential confounder for f2-f1 based on final models
+# Adjusted ANCOVA for mean_diff_f2_f1
+adjusted_diff_f2_f1 <- lm(mean_diff_f2_f1 ~ group + age + sex + migraine + chronicity + f1, data = na.omit(acutibble))
+
+# Adjusted ANCOVA for mean_diff_f2_nof1
+adjusted_diff_f2_f1_nof1 <- lm(mean_diff_f2_f1 ~ group + age + sex + migraine + chronicity, data = na.omit(acutibble))
+
+# Adjusted ANCOVA for mean_diff_f2_f1
+adjusted_diff_f2_f1_f1covaronly <- lm(mean_diff_f2_f1 ~ f1, data = na.omit(acutibble))
+
+# Summarize results for assessment of f1 as potential confounder for f2-f1
+summary(adjusted_diff_f2_f1)
+summary(adjusted_diff_f2_f1_nof1)
+summary(adjusted_diff_f2_f1_f1covaronly)
+
+# AGE as potential confounder for f2-f1 based on final models
+# Adjusted ANCOVA for mean_diff_f2_f1_noage
+adjusted_diff_f2_f1_noage <- lm(mean_diff_f2_f1 ~ group + sex + migraine + chronicity + f1, data = na.omit(acutibble))
+
+# Adjusted ANCOVA for mean_diff_f2_f1_ageonly
+adjusted_diff_f2_f1_ageonly<- lm(mean_diff_f2_f1 ~ age, data = na.omit(acutibble))
+
+# Summarize results for assessment of AGE as potential confounder for f2-f1
+summary(adjusted_diff_f2_f1)
+summary(adjusted_diff_f2_f1_noage)
+summary(adjusted_diff_f2_f1_ageonly)
+
+# f1 as potential confounder for f5-f1 based on final models
+# Adjusted ANCOVA for mean_diff_f5_f1
+adjusted_diff_f5_f1 <- lm(mean_diff_f5_f1 ~ group + age + sex + migraine + chronicity + f1, data = na.omit(acutibble))
+
+# Adjusted ANCOVA for mean_diff_f5_f1_nof1
+adjusted_diff_f5_f1_nof1 <- lm(mean_diff_f5_f1 ~ group + age + sex + migraine + chronicity, data = na.omit(acutibble))
+
+# Adjusted ANCOVA for mean_diff_f5_f1_f1covaronly
+adjusted_diff_f5_f1_f1covaronly <- lm(mean_diff_f5_f1 ~ f1, data = na.omit(acutibble))
+
+summary(adjusted_diff_f5_f1)
+summary(adjusted_diff_f5_f1_nof1)
+summary(adjusted_diff_f5_f1_f1covaronly)
+
+# ANALYSIS FOR INTERACTION
+# Adjusted analyses using ANCOVA for HEADACHE SEVERITY AT 3 MONTHS; group*age
+adjusted_diff_pk2_pk1_grpageint <- lm(mean_diff_pk2_pk1 ~ group + age + sex + migraine + chronicity + pk1 + group*age, data = na.omit(acutibble))
+
+# Adjusted analyses using ANCOVA for HEADACHE SEVERITY AT 12 MONTHS; group*age
+adjusted_diff_pk5_pk1_grpageint <- lm(mean_diff_pk5_pk1 ~ group + age + sex + migraine + chronicity + pk1 + group*age, data = na.omit(acutibble))
+
+# Adjusted analyses using ANCOVA for HEADACHE SEVERITY AT 3 MONTHS; group*sex
+adjusted_diff_pk2_pk1_grpsexint <- lm(mean_diff_pk2_pk1 ~ group + age + sex + migraine + chronicity + pk1 + group*sex, data = na.omit(acutibble))
+
+# Adjusted analyses using ANCOVA for HEADACHE SEVERITY AT 12 MONTHS; group*sex
+adjusted_diff_pk5_pk1_grpsexint <- lm(mean_diff_pk5_pk1 ~ group + age + sex + migraine + chronicity + pk1 + group*sex, data = na.omit(acutibble))
+
+# Adjusted ANCOVA for HEADACHE FREQUENCY AT 3 MONTHS; group*age
+adjusted_diff_f2_f1_grpageint <- lm(mean_diff_f2_f1 ~ group + age + sex + migraine + chronicity + f1 + group*age, data = na.omit(acutibble))
+
+# Adjusted ANCOVA for HEADACHE FREQUENCY AT 12 MONTHS; group*age
+adjusted_diff_f5_f1_grpageint <- lm(mean_diff_f5_f1 ~ group + age + sex + migraine + chronicity + f1 + group*age, data = na.omit(acutibble))
+
+# Adjusted ANCOVA for HEADACHE FREQUENCY AT 3 MONTHS; group*sex
+adjusted_diff_f2_f1_grpsexint <- lm(mean_diff_f2_f1 ~ group + age + sex + migraine + chronicity + f1 + group*sex, data = na.omit(acutibble))
+
+# Adjusted ANCOVA for HEADACHE FREQUENCY AT 12 MONTHS; group*sex
+adjusted_diff_f5_f1_grpsexint <- lm(mean_diff_f5_f1 ~ group + age + sex + migraine + chronicity + f1 + group*sex, data = na.omit(acutibble))
+
+# Summarize results of INTERACTION ANALYSIS of group*age and group*sex for pk2-pk1 and pk5-pk1
+summary(adjusted_diff_pk2_pk1_grpageint)
+summary(adjusted_diff_pk5_pk1_grpageint)
+summary(adjusted_diff_pk2_pk1_grpsexint)
+summary(adjusted_diff_pk5_pk1_grpsexint)
+summary(adjusted_diff_f2_f1_grpageint)
+summary(adjusted_diff_f5_f1_grpageint)
+summary(adjusted_diff_f2_f1_grpsexint)
+summary(adjusted_diff_f5_f1_grpsexint)
+
+# Specify the variables for imputation
+vars_to_impute <- c("pk2", "pk5")
+
+# Perform multiple imputation with 5 iterations
+imputed_data <- mice(acu_maindata, m = 10, method = "pmm", seed = 123)
+
+# Summary of the imputed data
+summary(imputed_data)
+
+# Initialize variables to store the mean values for pk2 and pk5
+mean_pk2_imputed <- numeric()
+mean_pk5_imputed <- numeric()
+
+# Loop through each imputed dataset
+for (i in 1:10) {
+  # Extract the imputed dataset
+  imputed_df <- complete(imputed_data, i)
+  
+  # Calculate the mean value of pk2 and pk5 for the current imputed dataset
+  mean_pk2_imputed[i] <- mean(imputed_df$pk2, na.rm = TRUE)
+  mean_pk5_imputed[i] <- mean(imputed_df$pk5, na.rm = TRUE)
+}
+
+# Calculate the pooled mean values for pk2 and pk5
+pooled_mean_pk2_imputed <- mean(mean_pk2_imputed)
+pooled_mean_pk5_imputed <- mean(mean_pk5_imputed)
+
+# Print the results
+print(pooled_mean_pk2_imputed)
+print(pooled_mean_pk5_imputed)
+
+# Create a new variable for the difference between pooled mean of pk2 and pk1
+acu_maindata$pooled_mean_diff_pk2_pk1 <- pooled_mean_pk2_imputed - acu_maindata$pk1
+
+# Multivariable analysis using ANCOVA for mean difference between mean_pk2_imputed and pk1
+adjusted_diff_pk2_pk1_sensitivity <- lm(pooled_mean_diff_pk2_pk1 ~ group + age + sex + migraine + chronicity, data = acu_maindata)
+
+# Print the summary of the model
+summary(adjusted_diff_pk2_pk1_sensitivity)
+
+# Create a new variable for the difference between pooled mean of pk5 and pk1
+acu_maindata$pooled_mean_diff_pk5_pk1 <- pooled_mean_pk5_imputed - acu_maindata$pk1
+
+# Multivariable analysis using ANCOVA for mean difference between mean_pk5_imputed and pk1
+adjusted_diff_pk5_pk1_sensitivity <- lm(pooled_mean_diff_pk5_pk1 ~ group + age + sex + migraine + chronicity, data = acu_maindata)
+
+# Print the summary of the model
+summary(adjusted_diff_pk5_pk1_sensitivity)
+
+# Calculate 95% confidence intervals for adjusted_diff_pk2_pk1_sensitivity
+confint(adjusted_diff_pk2_pk1_sensitivity)
+
+# Calculate 95% confidence intervals for adjusted_diff_pk5_pk1_sensitivity
+confint(adjusted_diff_pk5_pk1_sensitivity)
+
+# Calculate mean pk1 for control group
+mean_pk1_control <- mean(acu_maindata$pk1[acu_maindata$group == 0], na.rm = TRUE)
+
+# Calculate mean pk1 for acupuncture group
+mean_pk1_acupuncture <- mean(acu_maindata$pk1[acu_maindata$group == 1], na.rm = TRUE)
+
+# Print the results
+cat("Mean pk1 for control group:", mean_pk1_control, "\n")
+cat("Mean pk1 for acupuncture group:", mean_pk1_acupuncture, "\n")
+
+# Initialize variables to store mean pk2 and pk5 for control and acupuncture groups
+mean_pk2_control <- numeric()
+mean_pk2_acupuncture <- numeric()
+mean_pk5_control <- numeric()
+mean_pk5_acupuncture <- numeric()
+
+# Loop through each imputed dataset
+for (i in 1:5) {
+  # Extract the imputed dataset
+  imputed_df <- complete(imputed_data, i)
+  
+  # Calculate mean pk2 and pk5 for control group
+  mean_pk2_control[i] <- mean(imputed_df$pk2[imputed_df$group == 0], na.rm = TRUE)
+  mean_pk5_control[i] <- mean(imputed_df$pk5[imputed_df$group == 0], na.rm = TRUE)
+  
+  # Calculate mean pk2 and pk5 for acupuncture group
+  mean_pk2_acupuncture[i] <- mean(imputed_df$pk2[imputed_df$group == 1], na.rm = TRUE)
+  mean_pk5_acupuncture[i] <- mean(imputed_df$pk5[imputed_df$group == 1], na.rm = TRUE)
+}
+
+# Calculate the pooled mean values for pk2 and pk5 for control and acupuncture groups
+pooled_mean_pk2_control <- mean(mean_pk2_control)
+pooled_mean_pk2_acupuncture <- mean(mean_pk2_acupuncture)
+pooled_mean_pk5_control <- mean(mean_pk5_control)
+pooled_mean_pk5_acupuncture <- mean(mean_pk5_acupuncture)
+
+# Print the results
+cat("Mean pk2 for control group:", pooled_mean_pk2_control, "\n")
+cat("Mean pk2 for acupuncture group:", pooled_mean_pk2_acupuncture, "\n")
+cat("Mean pk5 for control group:", pooled_mean_pk5_control, "\n")
+cat("Mean pk5 for acupuncture group:", pooled_mean_pk5_acupuncture, "\n")
+
+
+# Initialize an empty list to store imputed data frames
+imputed_data_frames <- list()
+
+# Loop through each imputed dataset
+for (i in 1:5) {
+  # Extract the imputed dataset
+  imputed_df <- complete(imputed_data, i)
+  
+  # Add a column indicating the imputed dataset
+  imputed_df$imputed_dataset <- i
+  
+  # Store the imputed dataset in the list
+  imputed_data_frames[[i]] <- imputed_df
+}
+
+# Combine all imputed data frames into a single data frame
+imputed_combined <- do.call(rbind, imputed_data_frames)
+
+# Print the head of the combined imputed data frame
+print(head(imputed_combined))
+
+#END OF CODE
